@@ -1,0 +1,164 @@
+<html>
+<head>
+<!-- Copyright Olli Etuaho 2013 -->
+<title>glbrush.js brush benchmark</title>
+<script type="text/javascript" src="../util2d.js"></script>
+<script type="text/javascript" src="../util2d_painting.js"></script>
+<script type="text/javascript" src="../utilgl.js"></script>
+<script type="text/javascript" src="../blit_shader.js"></script>
+<script type="text/javascript" src="../rasterize_shader.js"></script>
+<script type="text/javascript" src="../gradient_shader.js"></script>
+<script type="text/javascript" src="../compositing_shader.js"></script>
+<script type="text/javascript" src="../brush_tip_mover.js"></script>
+<script type="text/javascript" src="../brush_textures.js"></script>
+<script type="text/javascript" src="../compositor.js"></script>
+<script type="text/javascript" src="../picture_event.js"></script>
+<script type="text/javascript" src="../rasterize.js"></script>
+<script type="text/javascript" src="../picture_update.js"></script>
+<script type="text/javascript" src="../picture_buffer.js"></script>
+<script type="text/javascript" src="../undo_state.js"></script>
+<script type="text/javascript" src="../picture.js"></script>
+<script type="text/javascript">
+
+// Test brush scaling by resizing the picture bitmap on each frame.
+
+var runTest = function() {
+    var w = 256;
+    var pictureMode = 'webgl';
+    var bitmapScale = 1.0;
+    var t = 0;
+    var testPics = [];
+    var testPic = Picture.create(0, null, new Rect(0, w, 0, w), bitmapScale, [pictureMode]);
+    testPic.addBuffer(0, [255, 255, 255, 255], false);
+    var pushEvent = function(event) {
+        var update = new PictureUpdate('add_picture_event');
+        update.setPictureEvent(0, event);
+        testPic.pushUpdate(update);
+    };
+    var color = [0, 0, 0];
+    var flow = 0.8;
+    var opacity = 1.0;
+    var radius = 20;
+    var softness = 1.0;
+    var mode = PictureEvent.Mode.normal;
+    var event = testPic.createBrushEvent(color, flow, opacity, radius, 0, softness, mode);
+    var yStep = 1/6;
+    var ySteps = yStep;
+    for (var j = 0; j < 101; ++j) {
+        var x = (0.005 * j + 0.2) * w;
+        var y = ySteps * w - Math.sin(x / w * Math.PI * 4) * 0.03 * w;
+        event.pushCoordTriplet(x, y, (x * 1.2) / w);
+    }
+    pushEvent(event);
+    ySteps += yStep;
+    event = testPic.createBrushEvent(color, flow, opacity, radius, 0, softness, mode);
+    for (var j = 0; j < 2; ++j) {
+        var x = (0.5 * j + 0.2) * w;
+        var y = (ySteps - 0.02) * w;
+        event.pushCoordTriplet(x, y, (x * 1.2) / w);
+    }
+    pushEvent(event);
+    ySteps += yStep;
+    softness = 0.0;
+    event = testPic.createBrushEvent(color, flow, opacity, radius, 0, softness, mode);
+    for (var j = 0; j < 101; ++j) {
+        var x = (0.005 * j + 0.2) * w;
+        var y = ySteps * w - Math.sin(x / w * Math.PI * 4) * 0.03 * w;
+        event.pushCoordTriplet(x, y, (x * 1.2) / w);
+    }
+    pushEvent(event);
+    ySteps += yStep;
+    event = testPic.createBrushEvent(color, flow, opacity, radius, 0, softness, mode);
+    for (var j = 0; j < 2; ++j) {
+        var x = (0.5 * j + 0.2) * w;
+        var y = (ySteps - 0.01) * w;
+        event.pushCoordTriplet(x, y, (x * 1.2) / w);
+    }
+    pushEvent(event);
+    ySteps += yStep;
+    softness = 0.0;
+    flow = 0.999;
+    event = testPic.createBrushEvent(color, flow, opacity, radius, 0, softness, mode);
+    for (var j = 0; j < 2; ++j) {
+        var x = j * 2 + 0.25 * w;
+        var y = ySteps * w;
+        event.pushCoordTriplet(x, y, 0.5 * j + 0.5);
+    }
+    pushEvent(event);
+    flow = 0.95;
+    event = testPic.createBrushEvent(color, flow, opacity, radius, 0, softness, mode);
+    for (var j = 0; j < 25; ++j) {
+        var x = j * 0.9 + 0.45 * w;
+        var y = ySteps * w;
+        if (j === 0) {
+            x -= 10;
+            y -= 5;
+        }
+        if (j === 24) {
+            x -= 10;
+            y += 20;
+        }
+        event.pushCoordTriplet(x, y, 0.5 + j / 100);
+    }
+    pushEvent(event);
+    event = testPic.createBrushEvent(color, flow, opacity, radius, 0, softness, mode);
+    for (var j = 0; j < 20; ++j) {
+        var x = j % 2 + 0.7 * w;
+        var y = ySteps * w;
+        event.pushCoordTriplet(x, y, j / 20);
+    }
+    pushEvent(event);
+    
+    event = testPic.createGradientEvent(color, opacity, mode);
+    event.coords0.y = 50;
+    event.coords0.x = 50;
+    event.coords1.y = 10;
+    event.coords1.x = 22;
+    pushEvent(event);
+
+    var drawFrame = function() {
+        if (testPics.length <= t) {
+            var generatePic = function(k) {
+                bitmapScale = 0.5 + k * 0.5;
+                Picture.copy(testPic, function(pic) {
+                    testPics[k] = pic;
+                }, bitmapScale);
+            };
+            generatePic(t);
+            setTimeout(drawFrame, 50);
+        } else {
+            testPic = testPics[t];
+            t = (t + 1) % 6;
+            var parent = document.getElementById('parent');
+            parent.innerHTML = '';
+            var picElement = testPic.pictureElement();
+            picElement.style.width = '100%';
+            picElement.style.height = '100%';
+            parent.appendChild(picElement);
+            testPic.display();
+            setTimeout(drawFrame, 1000);
+            var picScale = document.getElementById('picScale');
+            picScale.innerHTML = 'Bitmap width: ' + testPic.bitmapWidth();
+        }
+    }
+
+    if (testPic === null) {
+        console.log('Could not test mode ' + pictureMode);
+    } else {
+        setTimeout(drawFrame, 100);
+    }
+};
+
+</script>
+</head>
+<body onload="runTest()" style="background:#888;">
+<div id="parent" style="width:384px; height: 384px;">
+</div>
+<p id="picScale"></p>
+<p id="description">Ideally the appearance should change as little as possible 
+as the brush strokes are re-rendered at different resolutions.</p>
+<p>The bottom strokes are/were problematic cases: in the one on the left, the radius changes faster than position.
+In the one in the center, coordinates are moved at large increments at each end and at small increments in the center.
+In the one on the right, the brush stroke wiggles back and forth at &lt; 1 pixel distance (on the lowest scaling).</p>
+</body>
+</html>

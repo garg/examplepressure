@@ -1,0 +1,170 @@
+<html>
+<head>
+<!-- Copyright Olli Etuaho 2013 -->
+<title>glbrush.js example application</title>
+<script type="text/javascript" src="lib/hsl.js"></script>
+<script type="text/javascript" src="util2d.js"></script>
+<script type="text/javascript" src="util2d_painting.js"></script>
+<script type="text/javascript" src="utilgl.js"></script>
+<script type="text/javascript" src="blit_shader.js"></script>
+<script type="text/javascript" src="rasterize_shader.js"></script>
+<script type="text/javascript" src="gradient_shader.js"></script>
+<script type="text/javascript" src="compositing_shader.js"></script>
+<script type="text/javascript" src="brush_tip_mover.js"></script>
+<script type="text/javascript" src="brush_textures.js"></script>
+<script type="text/javascript" src="compositor.js"></script>
+<script type="text/javascript" src="picture_event.js"></script>
+<script type="text/javascript" src="rasterize.js"></script>
+<script type="text/javascript" src="picture_buffer.js"></script>
+<script type="text/javascript" src="undo_state.js"></script>
+<script type="text/javascript" src="picture_update.js"></script>
+<script type="text/javascript" src="picture.js"></script>
+<script type="text/javascript">
+/**
+ * Utility function to get event coordinates relative to an element.
+ */
+function getRelativeCoords(event, element) {
+    var rect = element.getBoundingClientRect();
+    // + 0.5 to move to pixel center
+    if (event.touches !== undefined && event.touches.length > 0) {
+        return new Vec2(event.touches[0].clientX - rect.left + 0.5,
+                        event.touches[0].clientY - rect.top + 0.5);
+    }
+    return new Vec2(event.clientX - rect.left + 0.5,
+                    event.clientY - rect.top + 0.5);
+}
+
+loadApp = function() {
+    // Create a container element for the picture
+    var drawArea = document.createElement('div');
+    var pressureValueArea = document.createElement('div');
+    var width = 800;
+    var height = 600;
+    drawArea.style.width = width + 'px';
+    drawArea.style.height = height + 'px';
+    document.body.appendChild(drawArea);
+    pressureValueArea.style.width = '200px';
+    pressureValueArea.style.height = '200px';
+    document.body.appendChild(pressureValueArea);
+    var p = document.createElement("p");
+    pressureValueArea.appendChild(p);
+
+    // Initialize a Picture with one opaque layer and add it to the drawArea
+    picture = Picture.create(0, null, new Rect(0, width, 0, height), 1.0,
+                                 ['webgl', 'no-float-webgl', 'canvas']);
+    picture.addBuffer(0, [255, 255, 255, 255], false);
+    picture.setCurrentEventAttachment(0);
+    drawArea.appendChild(picture.pictureElement());
+    picture.display();
+
+    // Add mouse event listeners to the container element that create brush
+    // events on the draw area
+    currentEvent = null;
+    var pressureInd = 0;
+    drawArea.onmousedown = function(e) {
+        var coords = getRelativeCoords(e, drawArea);
+        var oldPixel = picture.getPixelRGBA(coords);
+        // some funky color changes
+        var red = 255 - oldPixel[0];
+        var green = 33;
+        var blue = 42;
+        currentEvent = picture.createBrushEvent([red, green, blue], 0.8, 1.0, 20, 0, 0, PictureEvent.Mode.normal);
+    };
+    drawArea.onmouseup = function(e) {
+        if (currentEvent !== null) {
+            picture.setCurrentEvent(null);
+            var update = new PictureUpdate('add_picture_event');
+            update.setPictureEvent(0, currentEvent);
+            picture.pushUpdate(update);
+            picture.display();
+            currentEvent = null;
+        }
+    };
+    drawArea.onmouseout = drawArea.onmouseup;
+
+    /*if (window.PointerEvent) {
+
+            drawArea.addEventListener("pointerdown", function (e) {
+                console.log(e.pressure);
+                    });
+        }            //var pressure = (Math.sin(pressureInd * 0.4) + 2.0) * 0.33;
+    }*/
+
+    drawArea.onmousemove = function(e) {
+        if (currentEvent !== null) {
+            //thisevent = currentEvent;
+            if (window.PointerEvent){
+                drawArea.addEventListener("pointermove", function(e){
+                    //p.innerHTML= e.pressure;
+                    var coords = getRelativeCoords(e, drawArea);
+                    picture.pictureTransform.inverseTransform(coords);
+                    currentEvent.pushCoordTriplet(coords.x, coords.y, e.pressure);
+                    picture.setCurrentEvent(currentEvent);
+                    picture.display();
+
+                });
+            }
+            /*
+            var coords = getRelativeCoords(e, drawArea);
+            picture.pictureTransform.inverseTransform(coords);
+            currentEvent.pushCoordTriplet(coords.x, coords.y, 0.5);
+            picture.setCurrentEvent(currentEvent);
+            picture.display();
+            */
+        }
+
+
+    };
+    
+    var createButton = function(value, onclick) {
+        var btn = document.createElement('input');
+        btn.type = 'button';
+        btn.value = value;
+        document.body.appendChild(btn);
+        btn.onclick = onclick;
+    };
+
+    // Add undo to the mix just for kicks
+    createButton('Undo', function() {
+        var undone = picture.undoLatest();
+        if (undone) {
+            var update = new PictureUpdate('undo');
+            update.setUndoEvent(undone.sid, undone.sessionEventId);
+            picture.pushUpdate(update, false);
+        }
+        picture.display();
+    });
+
+    // And animation!
+    createButton('Animate', function() {
+        picture.animate(0.15);
+    });
+
+    // Whee, resize
+    var resize = function(scale) {
+        if (!picture.animating) {
+            picture.crop(picture.boundsRect, scale);
+            drawArea.style.width = picture.bitmapWidth();
+            drawArea.style.height = picture.bitmapHeight();
+            picture.display();
+        }
+    };
+    createButton('0.5x', function() {
+        resize(0.5);
+    });
+    createButton('1.0x', function() {
+        resize(1.0);
+    });
+    if (picture.maxBitmapScale() > 1.5) {
+        createButton('1.5x', function() {
+            resize(1.5);
+        });
+    }
+
+    // And there's a lot more public API in Picture to use...
+}
+</script>
+</head>
+<body onload="loadApp()" style="background:#888;">
+</body>
+</html>
