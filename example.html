@@ -37,14 +37,20 @@ function getRelativeCoords(event, element) {
 loadApp = function() {
     // Create a container element for the picture
     var drawArea = document.createElement('div');
+    var pressureValueArea = document.createElement('div');
     var width = 800;
     var height = 600;
     drawArea.style.width = width + 'px';
     drawArea.style.height = height + 'px';
     document.body.appendChild(drawArea);
+    pressureValueArea.style.width = '200px';
+    pressureValueArea.style.height = '200px';
+    document.body.appendChild(pressureValueArea);
+    var p = document.createElement("p");
+    pressureValueArea.appendChild(p);
 
     // Initialize a Picture with one opaque layer and add it to the drawArea
-    var picture = Picture.create(0, null, new Rect(0, width, 0, height), 1.0,
+    picture = Picture.create(0, null, new Rect(0, width, 0, height), 1.0,
                                  ['webgl', 'no-float-webgl', 'canvas']);
     picture.addBuffer(0, [255, 255, 255, 255], false);
     picture.setCurrentEventAttachment(0);
@@ -53,7 +59,7 @@ loadApp = function() {
 
     // Add mouse event listeners to the container element that create brush
     // events on the draw area
-    var currentEvent = null;
+    currentEvent = null;
     var pressureInd = 0;
     drawArea.onmousedown = function(e) {
         var coords = getRelativeCoords(e, drawArea);
@@ -62,9 +68,7 @@ loadApp = function() {
         var red = 255 - oldPixel[0];
         var green = 33;
         var blue = 42;
-        currentEvent = picture.createBrushEvent([red, green, blue], 0.8, 1.0,
-                                                20, 0, 1,
-                                                PictureEvent.Mode.normal);
+        currentEvent = picture.createBrushEvent([red, green, blue], 0.8, 1.0, 20, 0, 0, PictureEvent.Mode.normal);
     };
     drawArea.onmouseup = function(e) {
         if (currentEvent !== null) {
@@ -77,16 +81,39 @@ loadApp = function() {
         }
     };
     drawArea.onmouseout = drawArea.onmouseup;
+
+    /*if (window.PointerEvent) {
+
+            drawArea.addEventListener("pointerdown", function (e) {
+                console.log(e.pressure);
+                    });
+        }            //var pressure = (Math.sin(pressureInd * 0.4) + 2.0) * 0.33;
+    }*/
+
     drawArea.onmousemove = function(e) {
         if (currentEvent !== null) {
-            ++pressureInd;
-            var pressure = (Math.sin(pressureInd * 0.4) + 2.0) * 0.33;
+            //thisevent = currentEvent;
+            if (window.PointerEvent){
+                drawArea.addEventListener("pointermove", function(e){
+                    //p.innerHTML= e.pressure;
+                    var coords = getRelativeCoords(e, drawArea);
+                    picture.pictureTransform.inverseTransform(coords);
+                    currentEvent.pushCoordTriplet(coords.x, coords.y, e.pressure);
+                    picture.setCurrentEvent(currentEvent);
+                    picture.display();
+
+                });
+            }
+            /*
             var coords = getRelativeCoords(e, drawArea);
             picture.pictureTransform.inverseTransform(coords);
-            currentEvent.pushCoordTriplet(coords.x, coords.y, pressure);
+            currentEvent.pushCoordTriplet(coords.x, coords.y, 0.5);
             picture.setCurrentEvent(currentEvent);
             picture.display();
+            */
         }
+
+
     };
     
     var createButton = function(value, onclick) {
