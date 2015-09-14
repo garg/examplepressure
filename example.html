@@ -90,19 +90,28 @@ loadApp = function() {
         }            //var pressure = (Math.sin(pressureInd * 0.4) + 2.0) * 0.33;
     }*/
 
-    // drawArea.onmousemove = function(e) { // Ussless code
+    // drawArea.onmousemove = function(e) {
     //     if (currentEvent !== null) {
             //thisevent = currentEvent;
     if (window.PointerEvent){
         drawArea.addEventListener('pointermove', function(e){
             if( currentEvent === null ){ return } // When mouse or cursor move - this is null, but event is triggering
             //p.innerHTML= e.pressure;
+            // console.log(currentEvent);
+
             var coords = getRelativeCoords(e, drawArea);
+
             picture.pictureTransform.inverseTransform(coords);
-            currentEvent.pushCoordTriplet(coords.x, coords.y, e.pressure);
+            // currentEvent.pushCoordTriplet(coords.x, coords.y, e.pressure);
+
+            // currentEvent.opacity = e.pressure;
+            // currentEvent.brushTip.opacity = e.pressure;
+            currentEvent.brushTip.drawFlowAlpha = e.pressure/50;
+            // currentEvent.brushTip.radius = e.pressure*50;
+
+            currentEvent.pushCoordTriplet(coords.x, coords.y, 1);
             picture.setCurrentEvent(currentEvent);
             picture.display();
-
         });
     }
             /*
