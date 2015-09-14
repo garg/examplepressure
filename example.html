@@ -90,20 +90,21 @@ loadApp = function() {
         }            //var pressure = (Math.sin(pressureInd * 0.4) + 2.0) * 0.33;
     }*/
 
-    drawArea.onmousemove = function(e) {
-        if (currentEvent !== null) {
+    // drawArea.onmousemove = function(e) { // Ussless code
+    //     if (currentEvent !== null) {
             //thisevent = currentEvent;
-            if (window.PointerEvent){
-                drawArea.addEventListener("pointermove", function(e){
-                    //p.innerHTML= e.pressure;
-                    var coords = getRelativeCoords(e, drawArea);
-                    picture.pictureTransform.inverseTransform(coords);
-                    currentEvent.pushCoordTriplet(coords.x, coords.y, e.pressure);
-                    picture.setCurrentEvent(currentEvent);
-                    picture.display();
+    if (window.PointerEvent){
+        drawArea.addEventListener('pointermove', function(e){
+            if( currentEvent === null ){ return } // When mouse or cursor move - this is null, but event is triggering
+            //p.innerHTML= e.pressure;
+            var coords = getRelativeCoords(e, drawArea);
+            picture.pictureTransform.inverseTransform(coords);
+            currentEvent.pushCoordTriplet(coords.x, coords.y, e.pressure);
+            picture.setCurrentEvent(currentEvent);
+            picture.display();
 
-                });
-            }
+        });
+    }
             /*
             var coords = getRelativeCoords(e, drawArea);
             picture.pictureTransform.inverseTransform(coords);
@@ -111,11 +112,11 @@ loadApp = function() {
             picture.setCurrentEvent(currentEvent);
             picture.display();
             */
-        }
+    //     }
 
 
-    };
-    
+    // };
+
     var createButton = function(value, onclick) {
         var btn = document.createElement('input');
         btn.type = 'button';
